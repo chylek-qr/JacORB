@@ -22,11 +22,14 @@ package org.jacorb.orb.giop;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.lang.Object;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.locks.ReentrantLock;
 import org.jacorb.config.Configuration;
 import org.jacorb.config.ConfigurationException;
@@ -39,10 +42,7 @@ import org.jacorb.util.ObjectUtil;
 import org.jacorb.util.Time;
 import org.jacorb.util.TimerQueue;
 import org.jacorb.util.TimerQueueAction;
-import org.omg.CORBA.CompletionStatus;
-import org.omg.CORBA.NO_IMPLEMENT;
-import org.omg.CORBA.NO_MEMORY;
-import org.omg.CORBA.TIMEOUT;
+import org.omg.CORBA.*;
 import org.omg.ETF.BufferHolder;
 import org.omg.GIOP.MsgType_1_1;
 import org.omg.GIOP.ReplyStatusType_1_2;
@@ -1033,10 +1033,14 @@ public abstract class GIOPConnection
     {
         sendMessage (out, null);
     }
-
+    
+    public static final AtomicBoolean COMM_ERR_MANUAL = new AtomicBoolean(false);
+    public static final AtomicInteger CONN_RELEASE_DELAY = new AtomicInteger(0);
+    
     private final void sendMessage( MessageOutputStream out, org.omg.TimeBase.UtcT sendDeadline)
         throws IOException
     {
+        boolean commErr = COMM_ERR_MANUAL.get();
         try
     	{
             try
@@ -1092,6 +1096,7 @@ public abstract class GIOPConnection
 
                 out.write_to( this );
                 transport.flush();
+                if (commErr) throw new COMM_FAILURE("intentional after transport flush");
 
                 if (logger.isDebugEnabled())
                 {
