@@ -67,10 +67,10 @@
         <failIfNoTests>false</failIfNoTests>
 
         <!-- Enforce 1.6 compaatibility -->
-        <maven.compiler.target>1.6</maven.compiler.target>
-        <maven.compiler.source>1.6</maven.compiler.source>
-        <maven.compiler.test.target>1.6</maven.compiler.test.target>
-        <maven.compiler.test.source>1.6</maven.compiler.test.source>
+        <maven.compiler.target>1.8</maven.compiler.target>
+        <maven.compiler.source>1.8</maven.compiler.source>
+        <maven.compiler.test.target>1.8</maven.compiler.test.target>
+        <maven.compiler.test.source>1.8</maven.compiler.test.source>
 
         <datetime>${timestamp}</datetime>
 
@@ -83,9 +83,6 @@
         <module>omgapi</module>
         <module>core</module>
         <module>services</module>
-        <module>test/regression</module>
-        <module>test/orbreinvoke</module>
-        <module>demo</module>
     </modules>
 
 
