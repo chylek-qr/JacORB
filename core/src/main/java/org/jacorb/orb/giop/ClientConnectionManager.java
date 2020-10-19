@@ -89,97 +89,91 @@ public class ClientConnectionManager
         request_listener = listener;
     }
 
-    public synchronized ClientConnection getConnection(org.omg.ETF.Profile profile)
+    public ClientConnection getConnection(org.omg.ETF.Profile profile)
     {
-        /* look for an existing connection */
+        ClientConnection clientConnection;
+        synchronized (connections) {
+            /* look for an existing connection */
 
-        ClientConnection clientConnection = connections.get( profile );
+            clientConnection = connections.get(profile);
 
-        if (clientConnection == null && profile instanceof IIOPProfile)
-        {
-            IIOPProfile iiopProfile = (IIOPProfile) profile;
+            if (clientConnection == null && profile instanceof IIOPProfile) {
+                IIOPProfile iiopProfile = (IIOPProfile) profile;
 
-            if (iiopProfile.getSSL() != null)
-            {
-                final IIOPProfile sslProfile = iiopProfile.toNonSSL();
+                if (iiopProfile.getSSL() != null) {
+                    final IIOPProfile sslProfile = iiopProfile.toNonSSL();
 
-                clientConnection = connections.get(sslProfile);
-            }
-        }
-
-        // Don't return a closed connection.
-        if (clientConnection != null && clientConnection.isClosed())
-        {
-            releaseConnection (clientConnection);
-            clientConnection = null;
-        }
-
-        if (clientConnection == null)
-        {
-            int tag = profile.tag();
-            Factories factories = transport_manager.getFactories (tag);
-            if (factories == null)
-            {
-                throw new BAD_PARAM("No transport plugin for profile tag " + tag);
-            }
-            GIOPConnection connection =
-                giop_connection_manager.createClientGIOPConnection(
-                    profile,
-                    factories.create_connection (null),
-                    request_listener,
-                    null );
-
-            clientConnection = new ClientConnection( connection, orb, this,
-                                      profile, true );
-
-            if( logger.isInfoEnabled())
-            {
-                logger.info("ClientConnectionManager: created new "
-                            + clientConnection.getGIOPConnection().toString() );
+                    clientConnection = connections.get(sslProfile);
+                }
             }
 
-            receptor_pool.connectionCreated( connection );
-            connections.put( profile, clientConnection );
-        }
-        else
-        {
-            if( logger.isInfoEnabled())
-            {
-                logger.info("ClientConnectionManager: found "
+            // Don't return a closed connection.
+            if (clientConnection != null && clientConnection.isClosed()) {
+                releaseConnection(clientConnection);
+                clientConnection = null;
+            }
+
+            if (clientConnection == null) {
+                int tag = profile.tag();
+                Factories factories = transport_manager.getFactories(tag);
+                if (factories == null) {
+                    throw new BAD_PARAM("No transport plugin for profile tag " + tag);
+                }
+                GIOPConnection connection =
+                        giop_connection_manager.createClientGIOPConnection(
+                                profile,
+                                factories.create_connection(null),
+                                request_listener,
+                                null);
+
+                clientConnection = new ClientConnection(connection, orb, this,
+                        profile, true);
+
+                if (logger.isInfoEnabled()) {
+                    logger.info("ClientConnectionManager: created new "
                             + clientConnection.getGIOPConnection().toString());
+                }
+
+                receptor_pool.connectionCreated(connection);
+                connections.put(profile, clientConnection);
+            } else {
+                if (logger.isInfoEnabled()) {
+                    logger.info("ClientConnectionManager: found "
+                            + clientConnection.getGIOPConnection().toString());
+                }
             }
+
+            clientConnection.incClients();
         }
-
-        clientConnection.incClients();
-
         return clientConnection;
     }
 
     /**
      * Only used by Delegate for client-initiated connections.
      */
-    public synchronized void releaseConnection( ClientConnection connection )
+    public void releaseConnection( ClientConnection connection )
     {
-        if ( connection.decClients() || connection.isClosed ())
-        {
-            if (logger.isDebugEnabled())
-            {
-                logger.debug ("ClientConnectionManager: releasing " +
-                              ( connection.isClosed () ? "closed connection " : "" ) +
-                              connection.getGIOPConnection().toString());
+        boolean closing = false;
+        synchronized (connections) {
+            if (connection.decClients() || connection.isClosed()) {
+                if (logger.isDebugEnabled()) {
+                    logger.debug("ClientConnectionManager: releasing " +
+                            (connection.isClosed() ? "closed connection " : "") +
+                            connection.getGIOPConnection().toString());
+                }
+                closing = true;
+                connections.remove(connection.getRegisteredProfile());
+            } else {
+                // not sure if this should be a warning or even an error
+                if (logger.isDebugEnabled()) {
+                    logger.debug("ClientConnectionManager: cannot release "
+                            + connection.getGIOPConnection().toString()
+                            + " (still has " + connection.numClients() + " client(s))");
+                }
             }
-            connection.close();
-            connections.remove(connection.getRegisteredProfile());
         }
-        else
-        {
-            // not sure if this should be a warning or even an error
-            if (logger.isDebugEnabled())
-            {
-                logger.debug ("ClientConnectionManager: cannot release "
-                              + connection.getGIOPConnection().toString()
-                              + " (still has " + connection.numClients() + " client(s))");
-            }
+        if (closing) {
+            connection.close();
         }
     }
 
@@ -187,52 +181,54 @@ public class ClientConnectionManager
      * Only used by ClientConnection to unregister server-side of
      * BiDir connection.
      */
-    public synchronized void removeConnection(ClientConnection connection)
+    public void removeConnection(ClientConnection connection)
     {
-        connections.remove( connection.getRegisteredProfile() );
+        synchronized (connections) {
+            connections.remove(connection.getRegisteredProfile());
+        }
     }
 
-    public synchronized void addConnection( GIOPConnection connection,
+    public void addConnection( GIOPConnection connection,
                                             org.omg.ETF.Profile profile )
     {
-        if( !connections.containsKey( profile ))
-        {
-            ClientConnection clientConnection = new ClientConnection
-            (
-                connection,
-                orb,
-                this,
-                profile,
-                false
-            );
+        synchronized (connections) {
+            if (!connections.containsKey(profile)) {
+                ClientConnection clientConnection = new ClientConnection
+                        (
+                                connection,
+                                orb,
+                                this,
+                                profile,
+                                false
+                        );
 
-            //this is a bit of a hack: the bidirectional client
-            //connections have to persist until their underlying GIOP
-            //connection is closed. Therefore, we set the initial
-            //client count to 1, so the connection will be kept even
-            //if there are currently no associated Delegates.
+                //this is a bit of a hack: the bidirectional client
+                //connections have to persist until their underlying GIOP
+                //connection is closed. Therefore, we set the initial
+                //client count to 1, so the connection will be kept even
+                //if there are currently no associated Delegates.
 
-            clientConnection.incClients();
+                clientConnection.incClients();
 
-            connections.put( profile, clientConnection );
+                connections.put(profile, clientConnection);
+            }
         }
     }
 
-    public synchronized void shutdown()
+    public void shutdown()
     {
         /* release all open connections */
+        synchronized (connections) {
+            for (Iterator<ClientConnection> i = new HashSet<ClientConnection>(connections.values()).iterator(); i.hasNext(); ) {
+                i.next().close();
+            }
 
-        for( Iterator<ClientConnection> i = new HashSet<ClientConnection>(connections.values()).iterator(); i.hasNext(); )
-        {
-            i.next().close();
+            if (logger.isDebugEnabled()) {
+                logger.debug("ClientConnectionManager shut down (all connections released)");
+            }
+
+            connections.clear();
+            receptor_pool.shutdown();
         }
-
-        if( logger.isDebugEnabled())
-        {
-            logger.debug("ClientConnectionManager shut down (all connections released)");
-        }
-
-        connections.clear();
-        receptor_pool.shutdown();
     }
 }
