@@ -27,6 +27,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.locks.ReentrantLock;
 import org.jacorb.config.Configuration;
 import org.jacorb.config.ConfigurationException;
@@ -1033,9 +1034,11 @@ public abstract class GIOPConnection
         sendMessage (out, null);
     }
 
+    public static final AtomicBoolean COMM_ERR_MANUAL = new AtomicBoolean(false);
     private final void sendMessage( MessageOutputStream out, org.omg.TimeBase.UtcT sendDeadline)
         throws IOException
     {
+        boolean commErr = COMM_ERR_MANUAL.get();
         try
     	{
             try
@@ -1091,6 +1094,7 @@ public abstract class GIOPConnection
 
                 out.write_to( this );
                 transport.flush();
+                if (commErr) throw new COMM_FAILURE("intentional after transport flush");
 
                 if (logger.isDebugEnabled())
                 {

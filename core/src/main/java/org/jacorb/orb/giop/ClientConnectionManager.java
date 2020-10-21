@@ -162,6 +162,11 @@ public class ClientConnectionManager
     {
         if ( connection.decClients() || connection.isClosed ())
         {
+            try {
+                Thread.sleep(50L);
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
             if (logger.isDebugEnabled())
             {
                 logger.debug ("ClientConnectionManager: releasing " +
