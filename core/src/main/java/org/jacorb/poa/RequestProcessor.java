@@ -23,6 +23,7 @@ package org.jacorb.poa;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.function.Consumer;
 
 import org.jacorb.config.Configurable;
 import org.jacorb.config.Configuration;
@@ -476,7 +477,15 @@ public class RequestProcessor
                                 " invocation: throwable was thrown.",
                         e);
             }
-            request.setSystemException(new org.omg.CORBA.UNKNOWN(e.toString()));
+            String extraContext = null;
+            if (UNKNOWN_EXCEPTION_HANDLER != null) {
+                try {
+                    extraContext = UNKNOWN_EXCEPTION_HANDLER.handle(e);
+                } catch (Throwable t) {
+                    t.printStackTrace();
+                }
+            }
+            request.setSystemException(new org.omg.CORBA.UNKNOWN(e + (extraContext == null ? "" : extraContext)));
         }
         finally
         {
@@ -487,7 +496,21 @@ public class RequestProcessor
             }
         }
     }
-
+    
+    /**
+     * Handles unknown exceptions caught while processing a request.
+     */
+    public static UnknownExceptionHandler UNKNOWN_EXCEPTION_HANDLER;
+    
+    public interface UnknownExceptionHandler {
+    
+        /**
+         * Handles an exceptions and returns either {@code null}, or a {@link String} with additional context that is
+         * appended to the exception message.
+         */
+        String handle(Throwable t);
+    }
+    
     /**
      * performs the postinvoke call on a servant locator
      */
