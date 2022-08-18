@@ -14,6 +14,14 @@ http://www.iconarchive.com/show/fugue-icons-by-yusuke-kamiyamane.html
 
 
 
+# JacORB (Fork) #
+
+This is a modified version of JacORB for [Quant Retail s.r.o.](https://quantretail.com).
+
+1. Build using `mvn clean install -DskipTests=true`
+2. Copy `core/target/jacorb-3.8.jar` to libraries
+3. Copy `core/target/jacorb-3.8-sources.jar` to library sources
+
 # JacORB #
 
 JacORB is a [freely licensed](https://raw.githubusercontent.com/JacORB/JacORB/master/doc/LICENSE) java implementation of the OMG's [CORBA](http://www.omg.org) standard. The main home page is [here](http://www.jacorb.org). Mailing lists are available [here](http://www.jacorb.org/contact.html) and the Bugzilla for issues is [here](http://www.jacorb.org/bugzilla).
